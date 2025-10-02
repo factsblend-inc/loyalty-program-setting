@@ -2,8 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'export',
-  // Uncomment and set basePath to your repo name for GitHub Pages
-  // basePath: '/your-repo-name',
+  basePath: '/loyalty-program-setting',
   images: {
     unoptimized: true,
   },
