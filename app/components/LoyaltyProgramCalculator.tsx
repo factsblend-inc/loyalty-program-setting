@@ -124,6 +124,9 @@ export default function LoyaltyProgramCalculator({
   const [campaigns, setCampaigns] = useState(initialData?.campaigns || defaultCampaigns);
   const [selectedCampaignId, setSelectedCampaignId] = useState(1);
   const [showCampaignTypeModal, setShowCampaignTypeModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [selectedCampaignType, setSelectedCampaignType] = useState<string>('');
+  const [optimizationMessage, setOptimizationMessage] = useState<string>('');
 
   // Sync data to parent when inputs or campaigns change
   useEffect(() => {
@@ -232,7 +235,112 @@ export default function LoyaltyProgramCalculator({
     return Math.round(suggestedPoints * 10) / 10;
   };
 
+  // Get business size based on monthly revenue
+  const getBusinessSize = () => {
+    const revenue = Number(inputs.monthlyTransactions) * Number(inputs.avgTransactionValue);
+    if (revenue < 100000) return 'small';
+    if (revenue < 500000) return 'medium';
+    return 'large';
+  };
+
+  // Campaign templates based on business size
+  const campaignTemplates: Record<string, any> = {
+    pointMultiplier: {
+      'Weekend Double Points': {
+        small: { duration: 3, pointMultiplier: 2, targetParticipation: 25, additionalSpending: 15, marketingCost: 500 },
+        medium: { duration: 3, pointMultiplier: 2, targetParticipation: 30, additionalSpending: 20, marketingCost: 1500 },
+        large: { duration: 3, pointMultiplier: 2, targetParticipation: 35, additionalSpending: 25, marketingCost: 3000 }
+      },
+      'Flash 3X Points': {
+        small: { duration: 1, pointMultiplier: 3, targetParticipation: 20, additionalSpending: 20, marketingCost: 800 },
+        medium: { duration: 1, pointMultiplier: 3, targetParticipation: 25, additionalSpending: 25, marketingCost: 2000 },
+        large: { duration: 1, pointMultiplier: 3, targetParticipation: 30, additionalSpending: 30, marketingCost: 4000 }
+      },
+      'Weekly Bonus': {
+        small: { duration: 7, pointMultiplier: 1.5, targetParticipation: 30, additionalSpending: 10, marketingCost: 300 },
+        medium: { duration: 7, pointMultiplier: 1.5, targetParticipation: 35, additionalSpending: 15, marketingCost: 1000 },
+        large: { duration: 7, pointMultiplier: 1.5, targetParticipation: 40, additionalSpending: 20, marketingCost: 2000 }
+      }
+    },
+    groupReward: {
+      'Family Dining Bonus': {
+        small: { duration: 30, minGroupSize: 4, bonusPointsPerPerson: 50, targetParticipation: 15, additionalSpending: 25, marketingCost: 500 },
+        medium: { duration: 30, minGroupSize: 4, bonusPointsPerPerson: 100, targetParticipation: 20, additionalSpending: 30, marketingCost: 1500 },
+        large: { duration: 30, minGroupSize: 4, bonusPointsPerPerson: 150, targetParticipation: 25, additionalSpending: 35, marketingCost: 3000 }
+      },
+      'Large Party Reward': {
+        small: { duration: 30, minGroupSize: 6, bonusPointsPerPerson: 75, targetParticipation: 10, additionalSpending: 30, marketingCost: 600 },
+        medium: { duration: 30, minGroupSize: 6, bonusPointsPerPerson: 150, targetParticipation: 15, additionalSpending: 35, marketingCost: 1800 },
+        large: { duration: 30, minGroupSize: 6, bonusPointsPerPerson: 200, targetParticipation: 20, additionalSpending: 40, marketingCost: 3500 }
+      }
+    },
+    referral: {
+      'Friend Referral Program': {
+        small: { duration: 90, referrerBonus: 100, refereeBonus: 50, expectedReferrals: 20, marketingCost: 1000 },
+        medium: { duration: 90, referrerBonus: 200, refereeBonus: 100, expectedReferrals: 50, marketingCost: 3000 },
+        large: { duration: 90, referrerBonus: 300, refereeBonus: 150, expectedReferrals: 100, marketingCost: 6000 }
+      }
+    },
+    specialOccasion: {
+      'Birthday Bonus': {
+        small: { occasionBonus: 150, expectedOccasions: 50, additionalSpending: 30, marketingCost: 300 },
+        medium: { occasionBonus: 300, expectedOccasions: 100, additionalSpending: 40, marketingCost: 800 },
+        large: { occasionBonus: 500, expectedOccasions: 200, additionalSpending: 50, marketingCost: 1500 }
+      },
+      'Anniversary Reward': {
+        small: { occasionBonus: 200, expectedOccasions: 30, additionalSpending: 35, marketingCost: 400 },
+        medium: { occasionBonus: 400, expectedOccasions: 80, additionalSpending: 45, marketingCost: 1000 },
+        large: { occasionBonus: 600, expectedOccasions: 150, additionalSpending: 55, marketingCost: 2000 }
+      }
+    },
+    minPurchase: {
+      'Minimum ฿500 Bonus': {
+        small: { duration: 14, minPurchaseAmount: 500, bonusReward: 30, targetParticipation: 30, additionalSpending: 15, marketingCost: 800 },
+        medium: { duration: 14, minPurchaseAmount: 500, bonusReward: 50, targetParticipation: 35, additionalSpending: 20, marketingCost: 1500 },
+        large: { duration: 14, minPurchaseAmount: 500, bonusReward: 75, targetParticipation: 40, additionalSpending: 25, marketingCost: 3000 }
+      }
+    },
+    timeBased: {
+      'Happy Hour 3-6pm': {
+        small: { duration: 30, dailyHours: 3, pointMultiplier: 1.5, targetParticipation: 20, additionalSpending: 10, marketingCost: 1000 },
+        medium: { duration: 30, dailyHours: 3, pointMultiplier: 1.5, targetParticipation: 25, additionalSpending: 15, marketingCost: 2000 },
+        large: { duration: 30, dailyHours: 3, pointMultiplier: 1.5, targetParticipation: 30, additionalSpending: 20, marketingCost: 4000 }
+      },
+      'Early Bird Special': {
+        small: { duration: 30, dailyHours: 2, pointMultiplier: 2, targetParticipation: 15, additionalSpending: 12, marketingCost: 800 },
+        medium: { duration: 30, dailyHours: 2, pointMultiplier: 2, targetParticipation: 20, additionalSpending: 18, marketingCost: 1800 },
+        large: { duration: 30, dailyHours: 2, pointMultiplier: 2, targetParticipation: 25, additionalSpending: 25, marketingCost: 3500 }
+      }
+    },
+    frequencyReward: {
+      'Visit 5 Times Bonus': {
+        small: { duration: 30, requiredVisits: 5, bonusReward: 100, targetParticipation: 25, marketingCost: 500 },
+        medium: { duration: 30, requiredVisits: 5, bonusReward: 200, targetParticipation: 30, marketingCost: 1000 },
+        large: { duration: 30, requiredVisits: 5, bonusReward: 300, targetParticipation: 35, marketingCost: 2000 }
+      },
+      'Visit 10 Times VIP': {
+        small: { duration: 60, requiredVisits: 10, bonusReward: 200, targetParticipation: 15, marketingCost: 700 },
+        medium: { duration: 60, requiredVisits: 10, bonusReward: 400, targetParticipation: 20, marketingCost: 1500 },
+        large: { duration: 60, requiredVisits: 10, bonusReward: 600, targetParticipation: 25, marketingCost: 3000 }
+      }
+    },
+    spendingTier: {
+      'Spend ฿5000 Unlock': {
+        small: { duration: 30, spendingThreshold: 3000, tierBonus: 300, targetParticipation: 20, marketingCost: 800 },
+        medium: { duration: 30, spendingThreshold: 5000, tierBonus: 500, targetParticipation: 25, marketingCost: 1500 },
+        large: { duration: 30, spendingThreshold: 8000, tierBonus: 800, targetParticipation: 30, marketingCost: 3000 }
+      }
+    }
+  };
+
   const getDefaultCampaignValues = (type: string) => {
+    const businessSize = getBusinessSize();
+    const templates = campaignTemplates[type];
+    if (templates) {
+      const firstTemplate = Object.values(templates)[0] as any;
+      return firstTemplate[businessSize];
+    }
+
     const defaults: Record<string, any> = {
       pointMultiplier: { duration: 7, pointMultiplier: 2, targetParticipation: 30, additionalSpending: 25, marketingCost: 2000 },
       groupReward: { duration: 14, minGroupSize: 4, bonusPointsPerPerson: 100, targetParticipation: 20, additionalSpending: 30, marketingCost: 1500 },
@@ -247,41 +355,128 @@ export default function LoyaltyProgramCalculator({
   };
 
   const addCampaignWithType = (type: string) => {
+    setSelectedCampaignType(type);
+    setShowCampaignTypeModal(false);
+    setShowTemplatesModal(true);
+  };
+
+  const addCampaignFromTemplate = (type: string, templateName?: string) => {
     const newId = Math.max(...campaigns.map(c => c.id), 0) + 1;
+    const businessSize = getBusinessSize();
+
+    let campaignData;
+    if (templateName && campaignTemplates[type] && campaignTemplates[type][templateName]) {
+      campaignData = campaignTemplates[type][templateName][businessSize];
+    } else {
+      campaignData = getDefaultCampaignValues(type);
+    }
+
     const newCampaign = {
       id: newId,
-      name: `${campaignTypes[type].name} ${newId}`,
+      name: templateName || `${campaignTypes[type].name} ${newId}`,
       type,
       enabled: true,
-      ...getDefaultCampaignValues(type)
+      ...campaignData
     };
     setCampaigns([...campaigns, newCampaign]);
     setSelectedCampaignId(newId);
-    setShowCampaignTypeModal(false);
+    setShowTemplatesModal(false);
   };
 
   const getFieldLabel = (field: string) => {
     const labels: Record<string, any> = {
-      duration: { label: 'Duration (Days)', helper: 'How long the campaign runs' },
-      pointMultiplier: { label: 'Point Multiplier', helper: '2X = Double Points, 3X = Triple' },
-      targetParticipation: { label: 'Target Participation (%)', helper: 'Expected customer participation rate' },
-      additionalSpending: { label: 'Additional Spending (%)', helper: 'How much more customers will spend' },
-      marketingCost: { label: 'Marketing Cost (฿)', helper: 'Total marketing budget' },
-      minGroupSize: { label: 'Minimum Group Size', helper: 'Required number of people' },
-      bonusPointsPerPerson: { label: 'Bonus Points per Person', helper: 'Points awarded to each member' },
-      spendingThreshold: { label: 'Spending Threshold (฿)', helper: 'Amount needed to unlock tier' },
-      tierBonus: { label: 'Tier Bonus (฿)', helper: 'Reward value at tier' },
-      referrerBonus: { label: 'Referrer Bonus (฿)', helper: 'Reward for person who refers' },
-      refereeBonus: { label: 'Referee Bonus (฿)', helper: 'Reward for new customer' },
-      expectedReferrals: { label: 'Expected Referrals', helper: 'How many new customers expected' },
-      occasionBonus: { label: 'Occasion Bonus (฿)', helper: 'Reward on birthday/anniversary' },
-      expectedOccasions: { label: 'Expected Occasions', helper: 'Number of occasions per month' },
-      minPurchaseAmount: { label: 'Minimum Purchase (฿)', helper: 'Threshold to earn bonus' },
-      bonusReward: { label: 'Bonus Reward (฿)', helper: 'Value of reward earned' },
-      dailyHours: { label: 'Daily Hours', helper: 'Hours per day campaign is active' },
-      requiredVisits: { label: 'Required Visits', helper: 'Number of visits needed' }
+      duration: {
+        label: 'Duration (Days)',
+        helper: 'Flash sale: 1-3 days | Weekly: 7 days | Monthly: 30 days',
+        range: 'Typical: 3-30 days'
+      },
+      pointMultiplier: {
+        label: 'Point Multiplier',
+        helper: '1.5X = 50% more | 2X = Double | 3X = Triple points',
+        range: 'Common: 1.5X - 3X'
+      },
+      targetParticipation: {
+        label: 'Participation Rate (%)',
+        helper: 'What % of customers will join? Restaurants typically see 20-40%',
+        range: 'Conservative: 20% | Moderate: 30% | Optimistic: 40%'
+      },
+      additionalSpending: {
+        label: 'Extra Spending (%)',
+        helper: 'How much more will customers spend? Promotions typically drive 15-30% increase',
+        range: 'Conservative: 15% | Moderate: 25% | Optimistic: 35%'
+      },
+      marketingCost: {
+        label: 'Marketing Budget (฿)',
+        helper: 'Social media ads, posters, LINE messages. Small: ฿500 | Medium: ฿2,000 | Large: ฿5,000',
+        range: 'Typical: ฿500 - ฿5,000'
+      },
+      minGroupSize: {
+        label: 'Minimum Group Size',
+        helper: 'Family: 4 people | Large party: 6+ people',
+        range: 'Common: 4-8 people'
+      },
+      bonusPointsPerPerson: {
+        label: 'Bonus Points per Person',
+        helper: 'Extra points each person gets. Usually ฿50-200 worth',
+        range: 'Typical: 50-200 points'
+      },
+      spendingThreshold: {
+        label: 'Spending Target (฿)',
+        helper: 'Total customers need to spend. Small: ฿3,000 | Medium: ฿5,000 | Large: ฿10,000',
+        range: 'Common: ฿3,000 - ฿10,000'
+      },
+      tierBonus: {
+        label: 'Tier Reward (฿)',
+        helper: 'Value of reward when unlocked. Usually 5-10% of threshold',
+        range: 'Typical: ฿300 - ฿1,000'
+      },
+      referrerBonus: {
+        label: 'Referrer Reward (฿)',
+        helper: 'Reward for customer who refers. Usually ฿100-300',
+        range: 'Common: ฿100 - ฿300'
+      },
+      refereeBonus: {
+        label: 'New Customer Reward (฿)',
+        helper: 'Welcome reward for referred friend. Usually ฿50-150',
+        range: 'Typical: ฿50 - ฿150'
+      },
+      expectedReferrals: {
+        label: 'Expected New Customers',
+        helper: 'How many new customers from referrals? Small: 20 | Medium: 50 | Large: 100',
+        range: 'Realistic: 20-100 per 3 months'
+      },
+      occasionBonus: {
+        label: 'Birthday/Anniversary Reward (฿)',
+        helper: 'Special day bonus. Small: ฿150 | Medium: ฿300 | Large: ฿500',
+        range: 'Common: ฿150 - ฿500'
+      },
+      expectedOccasions: {
+        label: 'Occasions per Month',
+        helper: 'Birthdays/anniversaries. About 8-10% of monthly customers',
+        range: 'Estimate: 5-10% of customers'
+      },
+      minPurchaseAmount: {
+        label: 'Minimum Spend (฿)',
+        helper: 'Threshold to get bonus. Slightly above avg order: ฿500-1,000',
+        range: 'Typical: ฿400 - ฿1,000'
+      },
+      bonusReward: {
+        label: 'Bonus Value (฿)',
+        helper: 'Reward for reaching minimum. Usually 5-10% of threshold',
+        range: 'Common: ฿30 - ฿100'
+      },
+      dailyHours: {
+        label: 'Active Hours per Day',
+        helper: 'Lunch: 2-3 hours | Happy Hour: 3-4 hours | Evening: 2-3 hours',
+        range: 'Typical: 2-4 hours'
+      },
+      requiredVisits: {
+        label: 'Visits Needed',
+        helper: 'Low: 3 visits | Medium: 5 visits | High: 10 visits',
+        range: 'Common: 3-10 visits'
+      }
     };
-    return labels[field] || { label: field, helper: '' };
+    return labels[field] || { label: field, helper: '', range: '' };
   };
 
   const updateCampaign = (id: number, field: string, value: any) => {
@@ -300,6 +495,169 @@ export default function LoyaltyProgramCalculator({
     setCampaigns(campaigns.filter(c => c.id !== id));
     if (selectedCampaignId === id && campaigns.length > 1) {
       setSelectedCampaignId(campaigns.find(c => c.id !== id)?.id || campaigns[0].id);
+    }
+  };
+
+  const optimizeCampaignForPositiveROI = (campaignId: number) => {
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (!campaign) return;
+
+    const campaignMetric = calculations.campaignMetrics?.find(m => m.id === campaignId);
+    if (!campaignMetric) return;
+
+    // If already positive ROI > 10%, no need to optimize
+    if (campaignMetric.roi > 10) {
+      setOptimizationMessage('✅ Campaign already has positive ROI!');
+      setTimeout(() => setOptimizationMessage(''), 3000);
+      return;
+    }
+
+    const optimized = { ...campaign };
+    const changes: string[] = [];
+
+    // Target: 15% ROI minimum
+    const targetROI = 15;
+
+    switch (campaign.type) {
+      case 'pointMultiplier': {
+        // Reduce point multiplier if too high
+        if ((campaign.pointMultiplier || 2) > 2) {
+          optimized.pointMultiplier = 2;
+          changes.push(`Point multiplier reduced to 2X`);
+        }
+        // Increase participation expectation
+        if ((campaign.targetParticipation || 30) < 40) {
+          optimized.targetParticipation = 40;
+          changes.push(`Participation increased to 40%`);
+        }
+        // Reduce marketing cost
+        if ((campaign.marketingCost || 0) > 1000) {
+          optimized.marketingCost = Math.max(500, (campaign.marketingCost || 2000) * 0.5);
+          changes.push(`Marketing budget optimized`);
+        }
+        break;
+      }
+
+      case 'groupReward': {
+        // Reduce bonus per person
+        const currentBonus = campaign.bonusPointsPerPerson || 100;
+        if (currentBonus > 50) {
+          optimized.bonusPointsPerPerson = Math.max(50, Math.floor(currentBonus * 0.6));
+          changes.push(`Bonus reduced to ${optimized.bonusPointsPerPerson} points/person`);
+        }
+        // Increase participation
+        if ((campaign.targetParticipation || 20) < 25) {
+          optimized.targetParticipation = 25;
+          changes.push(`Participation increased to 25%`);
+        }
+        break;
+      }
+
+      case 'spendingTier': {
+        // Reduce tier bonus significantly
+        const currentBonus = campaign.tierBonus || 500;
+        if (currentBonus > 200) {
+          optimized.tierBonus = Math.max(200, Math.floor(currentBonus * 0.4));
+          changes.push(`Tier bonus reduced to ฿${optimized.tierBonus}`);
+        }
+        // Increase spending threshold
+        const currentThreshold = campaign.spendingThreshold || 5000;
+        if (currentThreshold < 8000) {
+          optimized.spendingThreshold = 8000;
+          changes.push(`Threshold increased to ฿8,000`);
+        }
+        break;
+      }
+
+      case 'referral': {
+        // Reduce referral bonuses
+        const currentReferrer = campaign.referrerBonus || 200;
+        const currentReferee = campaign.refereeBonus || 100;
+        if (currentReferrer > 150) {
+          optimized.referrerBonus = 150;
+          changes.push(`Referrer bonus reduced to ฿150`);
+        }
+        if (currentReferee > 75) {
+          optimized.refereeBonus = 75;
+          changes.push(`Referee bonus reduced to ฿75`);
+        }
+        // Increase expected referrals
+        if ((campaign.expectedReferrals || 50) < 100) {
+          optimized.expectedReferrals = Math.min(100, (campaign.expectedReferrals || 50) * 1.5);
+          changes.push(`Target referrals increased`);
+        }
+        break;
+      }
+
+      case 'specialOccasion': {
+        // Reduce occasion bonus
+        const currentBonus = campaign.occasionBonus || 300;
+        if (currentBonus > 150) {
+          optimized.occasionBonus = Math.max(150, Math.floor(currentBonus * 0.5));
+          changes.push(`Birthday bonus reduced to ฿${optimized.occasionBonus}`);
+        }
+        // Increase additional spending expectation
+        if ((campaign.additionalSpending || 30) < 40) {
+          optimized.additionalSpending = 40;
+          changes.push(`Expected extra spending increased to 40%`);
+        }
+        break;
+      }
+
+      case 'minPurchase': {
+        // Reduce bonus reward
+        const currentBonus = campaign.bonusReward || 50;
+        if (currentBonus > 30) {
+          optimized.bonusReward = 30;
+          changes.push(`Bonus reduced to ฿30`);
+        }
+        // Increase minimum purchase threshold
+        const currentMin = campaign.minPurchaseAmount || 500;
+        if (currentMin < 600) {
+          optimized.minPurchaseAmount = 600;
+          changes.push(`Minimum increased to ฿600`);
+        }
+        break;
+      }
+
+      case 'timeBased': {
+        // Reduce point multiplier
+        if ((campaign.pointMultiplier || 1.5) > 1.5) {
+          optimized.pointMultiplier = 1.5;
+          changes.push(`Multiplier reduced to 1.5X`);
+        }
+        // Reduce marketing cost
+        if ((campaign.marketingCost || 0) > 1000) {
+          optimized.marketingCost = 1000;
+          changes.push(`Marketing budget reduced to ฿1,000`);
+        }
+        break;
+      }
+
+      case 'frequencyReward': {
+        // Reduce bonus reward
+        const currentBonus = campaign.bonusReward || 200;
+        if (currentBonus > 150) {
+          optimized.bonusReward = 150;
+          changes.push(`Bonus reduced to ฿150`);
+        }
+        // Increase required visits
+        if ((campaign.requiredVisits || 5) < 7) {
+          optimized.requiredVisits = 7;
+          changes.push(`Required visits increased to 7`);
+        }
+        break;
+      }
+    }
+
+    // Apply optimizations
+    if (changes.length > 0) {
+      setCampaigns(campaigns.map(c => c.id === campaignId ? optimized : c));
+      setOptimizationMessage(`✨ Optimized: ${changes.join(', ')}`);
+      setTimeout(() => setOptimizationMessage(''), 5000);
+    } else {
+      setOptimizationMessage('💡 Try increasing participation or reducing rewards manually');
+      setTimeout(() => setOptimizationMessage(''), 3000);
     }
   };
 
@@ -395,7 +753,13 @@ export default function LoyaltyProgramCalculator({
     const pointValue = pointsRedeemed > 0 ? rewardBudgetAmount / pointsRedeemed : 0;
     const totalMonthlyCost = rewardBudgetAmount + safeFixedProgramCost;
     const costToRevenueRatio = (totalMonthlyCost / monthlyRevenue) * 100;
-    const additionalRevenueFromReturning = monthlyRevenue * (safeReturningCustomerUplift / 100);
+
+    // CORRECTED LOGIC: Uplift applies only to member transactions
+    // Assume 70% of transactions are from loyalty members
+    const memberTransactionPercentage = 0.70;
+    const memberRevenue = monthlyRevenue * memberTransactionPercentage;
+    // The uplift % represents how much MORE members spend/visit vs non-members
+    const additionalRevenueFromReturning = memberRevenue * (safeReturningCustomerUplift / 100);
     const additionalGrossProfit = additionalRevenueFromReturning * (safeGrossMargin / 100);
     const baseNetProfit = additionalGrossProfit - totalMonthlyCost;
     const baseROI = totalMonthlyCost > 0 ? (baseNetProfit / totalMonthlyCost) * 100 : 0;
@@ -418,19 +782,28 @@ export default function LoyaltyProgramCalculator({
         case 'groupReward': {
           const durationInMonths = (campaign.duration || 0) / 30;
           const groupParticipation = (campaign.targetParticipation || 0) / 100;
-          participants = safeMonthlyTransactions * groupParticipation * durationInMonths * (campaign.minGroupSize || 1);
+          // Group transactions (not people count)
+          const groupTransactions = safeMonthlyTransactions * groupParticipation * durationInMonths;
+          // Total people participating (for point calculation)
+          const totalPeople = groupTransactions * (campaign.minGroupSize || 1);
+          participants = totalPeople; // Track people for display
           const transactionValue = safeAvgTransactionValue * (1 + (campaign.additionalSpending || 0) / 100);
-          revenue = participants * transactionValue;
-          incrementalRevenue = revenue - (participants * safeAvgTransactionValue);
-          const bonusPoints = (campaign.bonusPointsPerPerson || 0) * participants;
+          // Revenue is from group TRANSACTIONS, not people
+          revenue = groupTransactions * transactionValue;
+          incrementalRevenue = revenue - (groupTransactions * safeAvgTransactionValue);
+          // Point cost is per person
+          const bonusPoints = (campaign.bonusPointsPerPerson || 0) * totalPeople;
           pointCost = bonusPoints * pointValue;
           break;
         }
         case 'spendingTier': {
           const durationInMonths = (campaign.duration || 0) / 30;
           participants = safeMonthlyTransactions * ((campaign.targetParticipation || 0) / 100) * durationInMonths;
-          revenue = participants * safeAvgTransactionValue;
-          incrementalRevenue = 0; // Customers already spending
+          // Customers spend more to reach threshold - estimate 20% increase in spending
+          const thresholdIncentive = 0.20; // 20% more spending to reach tier
+          const transactionValue = safeAvgTransactionValue * (1 + thresholdIncentive);
+          revenue = participants * transactionValue;
+          incrementalRevenue = revenue - (participants * safeAvgTransactionValue);
           const achievers = participants * 0.6; // 60% reach threshold
           pointCost = achievers * (campaign.tierBonus || 0);
           break;
@@ -463,8 +836,15 @@ export default function LoyaltyProgramCalculator({
         case 'timeBased': {
           const durationInMonths = (campaign.duration || 0) / 30;
           const dailyHours = campaign.dailyHours || 0;
-          const hourlyParticipation = (dailyHours / 24) * ((campaign.targetParticipation || 0) / 100);
-          participants = safeMonthlyTransactions * hourlyParticipation * durationInMonths;
+          // Assume business operates 12 hours/day on average
+          const businessHoursPerDay = 12;
+          // Percentage of daily transactions during happy hour (assuming even distribution)
+          const timeWindowPercentage = dailyHours / businessHoursPerDay;
+          // Customers during happy hour who participate
+          const dailyTransactions = safeMonthlyTransactions / 30; // transactions per day
+          const happyHourTransactions = dailyTransactions * timeWindowPercentage;
+          const participatingTransactions = happyHourTransactions * ((campaign.targetParticipation || 0) / 100);
+          participants = participatingTransactions * 30 * durationInMonths; // scale to monthly
           const transactionValue = safeAvgTransactionValue * (1 + (campaign.additionalSpending || 0) / 100);
           revenue = participants * transactionValue;
           incrementalRevenue = revenue - (participants * safeAvgTransactionValue);
@@ -473,11 +853,26 @@ export default function LoyaltyProgramCalculator({
         }
         case 'frequencyReward': {
           const durationInMonths = (campaign.duration || 0) / 30;
-          const achievers = (safeMonthlyTransactions / (campaign.requiredVisits || 1)) * ((campaign.targetParticipation || 0) / 100) * durationInMonths;
-          participants = achievers;
-          revenue = safeMonthlyTransactions * safeAvgTransactionValue * durationInMonths;
-          incrementalRevenue = 0; // Regular visits
-          pointCost = achievers * (campaign.bonusReward || 0);
+          const participationRate = (campaign.targetParticipation || 0) / 100;
+
+          // Estimate: Average customer visits 2.5 times per month normally
+          const avgNormalVisits = 2.5;
+          const requiredVisits = campaign.requiredVisits || 5;
+
+          // Customers who participate and try to complete the challenge
+          // Rough estimate: monthly transactions / avg visits = unique customers
+          const estimatedUniqueCustomers = safeMonthlyTransactions / avgNormalVisits;
+          const participatingCustomers = estimatedUniqueCustomers * participationRate * durationInMonths;
+
+          // Extra visits needed to reach goal (beyond normal behavior)
+          const extraVisitsPerCustomer = Math.max(0, requiredVisits - avgNormalVisits);
+          const totalExtraVisits = participatingCustomers * extraVisitsPerCustomer;
+
+          participants = Math.round(participatingCustomers); // People who complete challenge
+          // Incremental revenue from extra visits
+          incrementalRevenue = totalExtraVisits * safeAvgTransactionValue;
+          revenue = incrementalRevenue; // Only count incremental
+          pointCost = participants * (campaign.bonusReward || 0);
           break;
         }
       }
@@ -1239,9 +1634,25 @@ export default function LoyaltyProgramCalculator({
                             <p className={`font-semibold ${campaign.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
                               {campaign.name}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {campaignTypes[campaign.type]?.name} • {calculations.campaignMetrics?.find(m => m.id === campaign.id)?.roi.toFixed(1)}% ROI
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-gray-500">
+                                {campaignTypes[campaign.type]?.name} •
+                                <span className={`font-semibold ${
+                                  (calculations.campaignMetrics?.find(m => m.id === campaign.id)?.roi || 0) > 10
+                                    ? 'text-green-600'
+                                    : (calculations.campaignMetrics?.find(m => m.id === campaign.id)?.roi || 0) > 0
+                                    ? 'text-orange-600'
+                                    : 'text-red-600'
+                                }`}>
+                                  {' '}{calculations.campaignMetrics?.find(m => m.id === campaign.id)?.roi.toFixed(1)}% ROI
+                                </span>
+                              </p>
+                              {(calculations.campaignMetrics?.find(m => m.id === campaign.id)?.roi || 0) <= 10 && (
+                                <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                                  Needs Optimization
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         {campaigns.length > 1 && (
@@ -1267,16 +1678,36 @@ export default function LoyaltyProgramCalculator({
                   const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
                   if (!selectedCampaign) return null;
                   const campaignType = campaignTypes[selectedCampaign.type];
+                  const campaignMetric = calculations.campaignMetrics?.find(m => m.id === selectedCampaignId);
+                  const currentROI = campaignMetric?.roi || 0;
 
                   return (
                     <>
-                      <div className="flex items-center gap-3 mb-4">
-                        <span className="text-3xl">{campaignType?.icon || '⚡'}</span>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900">{campaignType?.name || 'Campaign'} Settings</h3>
-                          <p className="text-xs text-gray-500">{campaignType?.description}</p>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{campaignType?.icon || '⚡'}</span>
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900">{campaignType?.name || 'Campaign'} Settings</h3>
+                            <p className="text-xs text-gray-500">{campaignType?.description}</p>
+                          </div>
                         </div>
+                        {currentROI <= 10 && (
+                          <button
+                            onClick={() => optimizeCampaignForPositiveROI(selectedCampaignId)}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors font-medium text-sm shadow-sm"
+                          >
+                            <Zap className="w-4 h-4" />
+                            Optimize ROI
+                          </button>
+                        )}
                       </div>
+
+                      {/* Optimization Message */}
+                      {optimizationMessage && (
+                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+                          <p className="text-sm text-green-800 font-medium">{optimizationMessage}</p>
+                        </div>
+                      )}
 
                       <div className="space-y-4">
                         {/* Campaign Name - Always shown */}
@@ -1309,7 +1740,12 @@ export default function LoyaltyProgramCalculator({
                                 step={field.includes('Multiplier') ? '0.5' : '1'}
                               />
                               {fieldConfig.helper && (
-                                <p className="text-xs text-gray-500 mt-1">{fieldConfig.helper}</p>
+                                <div className="mt-1">
+                                  <p className="text-xs text-gray-600">{fieldConfig.helper}</p>
+                                  {fieldConfig.range && (
+                                    <p className="text-xs text-blue-600 font-medium mt-0.5">💡 {fieldConfig.range}</p>
+                                  )}
+                                </div>
                               )}
                             </div>
                           );
@@ -1472,6 +1908,92 @@ export default function LoyaltyProgramCalculator({
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Campaign Templates Modal */}
+        {showTemplatesModal && selectedCampaignType && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <span className="text-3xl">{campaignTypes[selectedCampaignType]?.icon}</span>
+                    {campaignTypes[selectedCampaignType]?.name}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your business size: <span className="font-semibold capitalize">{getBusinessSize()}</span> (based on ฿{(Number(inputs.monthlyTransactions) * Number(inputs.avgTransactionValue)).toLocaleString()}/month)
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTemplatesModal(false);
+                    setShowCampaignTypeModal(true);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {/* Templates */}
+                {campaignTemplates[selectedCampaignType] && Object.keys(campaignTemplates[selectedCampaignType]).length > 0 && (
+                  <>
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
+                      <p className="text-sm font-semibold text-blue-900 mb-1">✨ Recommended Templates</p>
+                      <p className="text-xs text-blue-800">Pre-filled with proven values for your business size. Just click and go!</p>
+                    </div>
+
+                    {Object.entries(campaignTemplates[selectedCampaignType]).map(([templateName, _]) => (
+                      <button
+                        key={templateName}
+                        onClick={() => addCampaignFromTemplate(selectedCampaignType, templateName)}
+                        className="w-full flex items-start justify-between p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:border-green-400 hover:bg-green-100 transition-all text-left group"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-gray-900 group-hover:text-green-700">
+                              {templateName}
+                            </h3>
+                            <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded-full">
+                              Template
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            All values pre-filled based on industry benchmarks for {getBusinessSize()} businesses
+                          </p>
+                        </div>
+                        <span className="text-green-600 text-2xl">→</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {/* Custom option */}
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => addCampaignFromTemplate(selectedCampaignType)}
+                    className="w-full flex items-start justify-between p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-gray-900 group-hover:text-blue-600">
+                          Start from Scratch
+                        </h3>
+                        <span className="px-2 py-0.5 bg-gray-500 text-white text-xs font-medium rounded-full">
+                          Custom
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        Create your own campaign with smart default values (you can customize everything)
+                      </p>
+                    </div>
+                    <span className="text-gray-400 text-2xl group-hover:text-blue-600">→</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
